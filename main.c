@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <sys/poll.h>
 #include <time.h>
 #include <unistd.h>
 #include <SDL/SDL.h>
@@ -97,7 +98,14 @@ void io_poll(void)
 
 	for(;;) {
 		char c;
-		int r = read(fd, &c, sizeof(c));
+		struct pollfd pfd;
+
+		pfd.fd = fd;
+		pfd.events = POLLIN;
+		int r = poll(&pfd, 1, 0);
+		if(r == 0) break;
+
+		r = read(fd, &c, sizeof(c));
 		if(r == 0) {
 			break;
 		} else if(r == -1) {

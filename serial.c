@@ -116,8 +116,8 @@ int set_noncanonical(int fd, struct termios *save)
 	tcgetattr(fd, &tios);
 
 	tios.c_lflag     = 0;
-	tios.c_cc[VTIME] = 100;
-	tios.c_cc[VMIN]  = 1;
+	tios.c_cc[VTIME] = 0;
+	tios.c_cc[VMIN]  = 0;
 
 	tcflush (fd, TCIFLUSH);
 	r = tcsetattr (fd, TCSANOW, &tios);
