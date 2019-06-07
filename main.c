@@ -11,17 +11,21 @@
 
 static char *fname = "/dev/ttyUSB0";
 
-static int debug = 1;
-static int t_now = 0;
-static int t_ping = 0;
-static int t_pong = 0;
-static int t_tick = 0;
-static int t_tock = 0;
-static int t_bell = 0;
-static int t_mech = 0;
+static int debug = 0;
+static double t_now = 0;
+static double t_ping = 0;
+static double t_pong = 0;
+static double t_tick = 0;
+static double t_tock = 0;
+static double t_bell = 0;
+static double t_work = 0;
 static int fd = -1;
 static int seq = 0;
 
+static Mix_Chunk *mech;
+static Mix_Chunk *bell;
+static Mix_Chunk *tick;
+static Mix_Chunk *tock;
 
 void printd(const char *fmt, ...)
 {
@@ -114,28 +118,103 @@ void io_poll(void)
 }
 
 
+void fn_output(const char *data1, const char *data2)
+{
+	printf("output %s %s\n", data1, data2);
+	int onoff = strcmp(data2, "on") == 0;
+	io_set(atoi(data1), onoff);
+}
+
+
+void fn_play(const char *data1, const char *data2)
+{
+	if(strcmp(data1, "mech") == 0) {
+		Mix_PlayChannel(3, mech, 0);
+	}
+	if(strcmp(data1, "bell") == 0) {
+		Mix_PlayChannel(3, bell, 0);
+	}
+}
+
+
+struct work {
+	double t;
+	void (*fn)(const char *data1, const char *data2);
+	const char *data1, *data2;
+	int done;
+} work_list[] = {
+	{    0.0, fn_output, "1", "on",  },
+	{   30.0, fn_output, "2", "on",  },
+	{   52.0, fn_play,   "mech"      },
+	{   60.0, fn_output, "3", "on"   },
+	{   60.0, fn_play,   "bell"      },
+	{   64.0, fn_play,   "bell"      },
+	{   68.0, fn_play,   "bell"      },
+	{   72.0, fn_play,   "bell"      },
+	{   76.0, fn_play,   "bell"      },
+	{   80.0, fn_play,   "bell"      },
+	{   84.0, fn_play,   "bell"      },
+	{   88.0, fn_play,   "bell"      },
+	{   92.0, fn_play,   "bell"      },
+	{   96.0, fn_play,   "bell"      },
+	{  100.0, fn_play,   "bell"      },
+	{  104.0, fn_play,   "bell"      },
+	{  104.0, fn_output, "3", "off"  },
+	{  114.0, fn_output, "2", "off"  },
+	{  120.0, fn_output, "1", "off"  },
+};
+
+#define WORK_COUNT (sizeof(work_list) / sizeof(work_list[0]))
+
+
+void work_reset(void)
+{
+	int i;
+	for(i=0; i<WORK_COUNT; i++) {
+		struct work *w = &work_list[i];
+		w->done = 0;
+	}
+}
+
+
+void work_do(double t)
+{
+	int i;
+	for(i=0; i<WORK_COUNT; i++) {
+		struct work *w = &work_list[i];
+		if(!w->done && t >= w->t) {
+			w->fn(w->data1, w->data2);
+			w->done = 1;
+		}
+	}
+}
+
+
 int main(int argc, char **argv)
 {
-	//system("/usr/sbin/alsactl --file alsa.state restore");
-
+	system("/usr/sbin/alsactl --file alsa.state restore");
 
         Mix_OpenAudio(44100, AUDIO_S16, 2, 32);
 	SDL_Init(SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
-	Mix_Chunk *mech = Mix_LoadWAV("wav/mech.wav");
-	Mix_Chunk *bell = Mix_LoadWAV("wav/bell.wav");
-	Mix_Chunk *tick = Mix_LoadWAV("wav/tick.wav");
-	Mix_Chunk *tock = Mix_LoadWAV("wav/tock.wav");
+	mech = Mix_LoadWAV("wav/mech.wav");
+	bell = Mix_LoadWAV("wav/bell.wav");
+	tick = Mix_LoadWAV("wav/tick.wav");
+	tock = Mix_LoadWAV("wav/tock.wav");
 
 	Mix_VolumeChunk(tick, 128);
 	Mix_VolumeChunk(tock, 128);
 	Mix_VolumeChunk(mech, 50);
 
-	t_tick = 0;
-	t_tock = 1500;
+	t_tick = 0.0;
+	t_tock = 1.5;
+	t_bell = 3.0;
 
 	int sec_prev = 0;
-	int t_mech = 2000;
-	int t_bell = t_mech + 8000;
+
+	int i;
+	for(i=0; i<5; i++) {
+		io_set(i, 0);
+	}
 
 	for(;;) {
 
@@ -148,47 +227,39 @@ int main(int argc, char **argv)
 
 		if(sec != sec_prev) {
 			printf("%02d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-			if(tm->tm_sec == 0) {
-				t_mech = t_now;
-				t_bell = t_now + 8000;
+			if(tm->tm_sec == 52 && tm->tm_min == 54) {
+				work_reset();
+				t_work = t_now;
 			}
 			sec_prev = sec;
 		}
 
 
-		t_now = SDL_GetTicks();
+		t_now = SDL_GetTicks() / 1000.0;
 
 		io_poll();
 
 		if(t_now > t_ping) {
 			io_cmd("ping");
-			t_ping += 500;
+			t_ping += 0.5;
 		}
 
-		if(t_now > t_pong + 2000) {
+		if(t_now > t_pong + 2.0) {
 			fprintf(stderr, "ping timeout\n");
 			t_pong = t_now;
 		}
 
 		if(t_now >= t_tick) {
 			Mix_PlayChannel(0, tick, 0);
-			t_tick += 3000;
+			t_tick += 3.0;
 		}
 
 		if(t_now >= t_tock) {
 			Mix_PlayChannel(1, tock, 0);
-			t_tock += 3000;
+			t_tock += 3.0;
 		}
 
-		if(t_mech && t_now >= t_mech) {
-			Mix_PlayChannel(3, mech, 0);
-			t_mech = 0;
-		}
-
-		if(t_bell && t_now >= t_bell) {
-			Mix_PlayChannel(2, bell, 3);
-			t_bell = 0;
-		}
+		work_do(t_now - t_work);
 
 		SDL_Delay(10);
 	}
