@@ -71,8 +71,7 @@ int serial_open(char *dev, int baudrate, int rtscts, int xonxoff, int stopbits, 
 	fd = open (dev, O_RDWR | O_NOCTTY);
 	
 	if (fd < 0) {
-		perror (dev);
-		exit (1);
+		return -1;
 	}
 
 	tios.c_cflag = br | CS8 | CLOCAL | CREAD;  
