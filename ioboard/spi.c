@@ -4,6 +4,7 @@
 
 #include <avr/io.h>
 #include <avr/interrupt.h>
+#include <util/delay.h>
 
 #include "spi.h"
 #include "msg.h"
@@ -11,7 +12,7 @@
 
 static uint8_t fn_spi(struct msg *m)
 {
-	spi_tx((void *)"\x00\xff\x55", 3);
+	spi_tx((void *)"\x00\xff\x0f", 3, 1);
 	return 0;
 }
 
@@ -23,23 +24,70 @@ static uint8_t fn_spi(struct msg *m)
 
 void spi_init()
 { 
-	DDRB |= (1<<PB2) | (1<<PB3) | (1<<PB4) | (1<<PB5);
-	SPCR = (1<<SPE) | (1<<MSTR) | (1<<SPR0) | (1<<SPR1) | (1<<CPOL) | (1<<CPHA);
+	PORTB |= (1<<PB3) | (1<<PB4) | (1<<PB5);
+	DDRB |= (1<<PB3) | (1<<PB4) | (1<<PB5);
 
 	msg_add_handler("spi", fn_spi, 0);
 }
 
 
-void spi_tx(uint8_t *buf, uint8_t len)
+static void mosi(uint8_t v)
 {
+	if(v) {
+		PORTB |= (1<<PB3);
+	} else {
+		PORTB &= ~(1<<PB3);
+	}
+}
 
-	PORTB &= ~(1<<PB4);
+static void sck(uint8_t v)
+{
+	if(v) {
+		PORTB |= (1<<PB5);
+	} else {
+		PORTB &= ~(1<<PB5);
+	}
+}
+
+static void cs(uint8_t v)
+{
+	if(v) {
+		PORTB |= (1<<PB4);
+	} else {
+		PORTB &= ~(1<<PB4);
+	}
+}
+
+
+#define DELAY 1
+
+void spi_tx(uint8_t *buf, size_t len, uint8_t b9)
+{
+	cs(0);
+	_delay_us(DELAY);
 
 	while(len--) {
-		SPDR = *buf++;
-		while(!(SPSR & (1<<SPIF)));
+		sck(0);
+		mosi(b9);
+		_delay_us(DELAY);
+		sck(1);
+		_delay_us(DELAY);
+
+		uint8_t v = *buf++;
+		for(uint8_t i=0; i<8; i++) {
+			sck(0);
+			mosi(v & 0x80);
+			_delay_us(DELAY);
+			sck(1);
+			_delay_us(DELAY);
+			v <<= 1;
+		}
 	}
-	PORTB |= (1<<PB4);
+	
+	mosi(1);
+	_delay_us(DELAY);
+	cs(1);
+	_delay_us(DELAY);
 }
 	
 

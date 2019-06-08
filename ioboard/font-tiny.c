@@ -1,6 +1,6 @@
 #include "img.h"
 
-const struct img font_tiny = {
+const struct img font_tiny PROGMEM = {
 	.w = 480,
 	.h = 8,
 	.data = {

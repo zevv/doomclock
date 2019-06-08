@@ -119,7 +119,7 @@ void io_cmd(const char *fmt, ...)
 	va_end(va);
 
 	char msg[65];
-	int l = snprintf(msg, sizeof(msg), "%d:%s\n", seq, buf);
+	int l = snprintf(msg, sizeof(msg), "%d,%s\n", seq, buf);
 	printd("> %s", msg);
 
 	io_open();
@@ -136,6 +136,24 @@ void io_cmd(const char *fmt, ...)
 void io_set(int nr, int onoff)
 {
 	io_cmd("output %d %d", nr, onoff);
+}
+
+
+void io_dpy_clear(void)
+{
+	io_cmd("dpy c");
+}
+
+
+void io_dpy_l1(const char *msg)
+{
+	io_cmd("dpy 1 %s", msg);
+}
+
+
+void io_dpy_l2(int h, int m)
+{
+	io_cmd("dpy 2 %02d:%02d", h, m);
 }
 
 
@@ -281,6 +299,9 @@ int main(int argc, char **argv)
 			
 	int sec_prev = 0;
 
+	io_dpy_clear();
+	io_dpy_l1("TickTock");
+
 	int i;
 	for(i=0; i<5; i++) {
 		io_set(i, 0);
@@ -296,6 +317,7 @@ int main(int argc, char **argv)
 		int min = tm->tm_min;
 
 		if(sec != sec_prev) {
+			io_dpy_l2(min, sec);
 			printf("%02d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
 				work_reset();

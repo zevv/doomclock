@@ -83,7 +83,7 @@ static uint8_t msg_parse(struct msg *m, char *buf)
 	char *seq = NULL;
 	char *cksum = NULL;
 
-	parts = split(buf, ':', part, 8);
+	parts = split(buf, ',', part, 8);
 
 	if(parts == 1) {
 		body = part[0];

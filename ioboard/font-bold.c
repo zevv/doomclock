@@ -1,6 +1,6 @@
 #include "img.h"
 
-const struct img font_bold = {
+const struct img font_bold PROGMEM = {
 	.w = 752,
 	.h = 16,
 	.data = {

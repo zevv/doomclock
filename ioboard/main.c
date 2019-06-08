@@ -30,6 +30,9 @@ int main(void)
 	spi_init();
 	dpy_init();
 
+	dpy_text(FONT_NORMAL, 0, 0, "READY");
+	dpy_flush();
+
 	msg_add_handler("version", fn_version, 0);
 	msg_add_handler("reset", fn_reset, 0);
 

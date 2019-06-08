@@ -6,12 +6,11 @@
 #include <stdarg.h>
 #include "img.h"
 
-#define printd dpy_printf
-
 enum font_id {
 	FONT_NORMAL,
 	FONT_BOLD,
 	FONT_TINY,
+	FONT_MEDIUM,
 };
 
 enum icon_id {
@@ -35,8 +34,8 @@ enum dc {
 	DC_DATA,
 };
 
-#define LCD_WIDTH 32
-#define LCD_HEIGHT 32
+#define LCD_WIDTH 128
+#define LCD_HEIGHT 64
 
 void dpy_open(void);
 void dpy_init(void);

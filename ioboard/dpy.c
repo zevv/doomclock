@@ -1,10 +1,12 @@
 #include <avr/io.h>
+#include <avr/pgmspace.h>
 
 #include "dpy.h"
 #include "spi.h"
+#include "printd.h"
 #include "msg.h"
 
-//#define HAVE_FONTS
+#define HAVE_FONTS
 
 
 #ifdef HAVE_FONTS
@@ -12,6 +14,7 @@
 #include "font-tiny.c"
 #include "font-normal.c"
 #include "font-bold.c"
+#include "font-medium.c"
 
 struct font {
 	const struct img *img;
@@ -45,6 +48,13 @@ struct font font_list[] = {
 		.ch = 16,
 		.c_from = '!',
 		.c_to = '~',
+	},
+	[FONT_MEDIUM] = {
+		.img = &font_medium,
+		.cw = 20,
+		.ch = 40,
+		.c_from = '0',
+		.c_to = ':',
 	},
 };
 
@@ -106,24 +116,33 @@ struct font font_list[] = {
 #define CMD_VERTICAL_AND_LEFT_HORIZONTAL_SCROLL 0x2A
 
 
-static void dpy_reset(void);
 static void dpy_cmd(uint8_t c);
 
-uint8_t fb[LCD_WIDTH * LCD_HEIGHT / 8] = { 0 };
+uint8_t fb[LCD_WIDTH * LCD_HEIGHT / 8];
 
 static uint8_t fn_dpy(struct msg *m)
 {
-	dpy_line(0, 0, 30, 30, 1);
-	dpy_flush();
+	if(m->argc == 1) {
+		if(m->argv[0][0] == 'c') {
+			dpy_clear();
+		}
+	}
+	if(m->argc == 2) {
+		if(m->argv[0][0] == '1') {
+			dpy_text(FONT_NORMAL, 0, 0, m->argv[1]);
+		}
+		if(m->argv[0][0] == '2') {
+			dpy_text(FONT_MEDIUM, 8, 16, m->argv[1]);
+		}
+		dpy_flush();
+	}
 	return 0;
 }
 
 
 void dpy_init(void)
 {
-	msg_add_handler("d", fn_dpy, 0);
-
-	dpy_reset();
+	msg_add_handler("dpy", fn_dpy, 0);
 
 	dpy_cmd(CMD_DISPLAYOFF);
 	dpy_cmd(CMD_SETDISPLAYCLOCKDIV); dpy_cmd(0x80); 
@@ -144,7 +163,7 @@ void dpy_init(void)
 	dpy_cmd(CMD_NORMALDISPLAY);
 	dpy_cmd(CMD_DISPLAYON);
 
-	dpy_brightness(255);
+//	dpy_brightness(255);
 }
 
 
@@ -159,33 +178,9 @@ void dpy_brightness(uint8_t v)
 }
 
 
-static void dpy_reset(void)
-{
-}
-
-
 void dpy_tx(enum dc dc, void *data, size_t len)
 {
-	uint8_t buf[len*9/8+1];
-
-	uint8_t *pin = data;
-	uint8_t *pout = buf;
-	uint8_t bout = 0x80;
-
-	for(uint8_t i=0; i<len; i++) {
-		if(dc) *pout |= bout;
-		bout >>= 1;
-		if(bout == 0) { *(++pout) = 0xff; bout = 0x80; }
-		for(uint8_t j=0; j<8; j++) {
-			uint8_t v = *pin & (0x80 >> j);
-			if(v) *pout |= bout;
-			bout >>= 1;
-			if(bout == 0) { *(++pout) = 0xff; bout = 0x80; }
-		}
-		pin++;
-	}
-
-	spi_tx(buf, sizeof buf);
+	spi_tx(data, len, dc == DC_DATA);
 }
 
 
@@ -349,8 +344,8 @@ void dpy_blit(const struct img *src, uint16_t sx, uint8_t sy, uint8_t dx, uint8_
 {
 	uint8_t x, y;
 
-	uint16_t sw = src->w;
-	uint16_t sh = src->h;
+	uint16_t sw = pgm_read_word(&src->w);
+	uint16_t sh = pgm_read_word(&src->h);
 
 	if(w > sw) w = sw;
 	if(h > sh) h = sh;
@@ -361,7 +356,7 @@ void dpy_blit(const struct img *src, uint16_t sx, uint8_t sy, uint8_t dx, uint8_
 		uint8_t *pd = fb + LCD_WIDTH * (dy + y) / 8 + dx;
 
 		for(x=0; x<w; x++) {
-			*pd++ = *ps++;
+			*pd++ = pgm_read_byte(ps++);
 		}
 	}
 }
