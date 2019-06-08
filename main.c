@@ -2,13 +2,18 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <sys/poll.h>
+#include <string.h>
 #include <time.h>
+#include <sys/time.h>
 #include <unistd.h>
-#include <SDL/SDL.h>
-#include <SDL_mixer.h>
+#include <AL/al.h>
+#include <AL/alure.h>
 
 #include "serial.h"
 
+
+void fn_output(const char *data1, const char *data2);
+void fn_play(const char *data1, const char *data2);
 
 static char *fname = "/dev/ttyUSB0";
 
@@ -23,10 +28,69 @@ static double t_work = 0;
 static int fd = -1;
 static int seq = 0;
 
-static Mix_Chunk *mech;
-static Mix_Chunk *bell;
-static Mix_Chunk *tick;
-static Mix_Chunk *tock;
+#define TEST_ERROR(_msg)		\
+	error = alGetError();		\
+	if (error != AL_NO_ERROR) {	\
+		fprintf(stderr, _msg "\n");	\
+		exit(1);		\
+	}
+
+struct sample {
+	const char *fname;
+	float pitch;
+	float gain;
+	ALuint buf;
+	ALuint src;
+} sample_list[] = {
+	{ "wav/tick.wav", .pitch=0.8, .gain=1.0 },
+	{ "wav/tock.wav", .pitch=0.8, .gain=1.0 },
+	{ "wav/mech.wav", .pitch=0.6, .gain=1.0 },
+	{ "wav/bell.wav", .pitch=0.6, .gain=1.0 },
+};
+
+
+struct work {
+	double t;
+	void (*fn)(const char *data1, const char *data2);
+	const char *data1, *data2;
+	int done;
+} work_list[] = {
+	{    0.0, fn_output, "1", "on",  },
+	{   30.0, fn_output, "2", "on",  },
+	{   48.0, fn_play,   "mech"      },
+	{   60.0, fn_output, "3", "on"   },
+	{   60.0, fn_play,   "bell"      },
+	{   64.0, fn_play,   "bell"      },
+	{   68.0, fn_play,   "bell"      },
+	{   72.0, fn_play,   "bell"      },
+	{   76.0, fn_play,   "bell"      },
+	{   80.0, fn_play,   "bell"      },
+	{   84.0, fn_play,   "bell"      },
+	{   88.0, fn_play,   "bell"      },
+	{   92.0, fn_play,   "bell"      },
+	{   96.0, fn_play,   "bell"      },
+	{  100.0, fn_play,   "bell"      },
+	{  104.0, fn_play,   "bell"      },
+	{  104.0, fn_output, "3", "off"  },
+	{  114.0, fn_output, "2", "off"  },
+	{  120.0, fn_output, "1", "off"  },
+};
+
+
+#define WORK_COUNT (sizeof(work_list) / sizeof(work_list[0]))
+#define SAMPLE_COUNT (sizeof(sample_list) / sizeof(sample_list[0]))
+
+
+double hirestime(void)
+{
+	static double t_first = 0;
+	struct timeval tv;
+	gettimeofday(&tv, NULL);
+	double t_now =  tv.tv_sec + tv.tv_usec * 1.0e-6;
+	if(t_first == 0) t_first = t_now;
+	return t_now - t_first;
+}
+
 
 void printd(const char *fmt, ...)
 {
@@ -46,7 +110,7 @@ void io_open(void)
 }
 
 
-int io_cmd(const char *fmt, ...)
+void io_cmd(const char *fmt, ...)
 {
 	char buf[64];
 	va_list va;
@@ -56,7 +120,6 @@ int io_cmd(const char *fmt, ...)
 
 	char msg[65];
 	int l = snprintf(msg, sizeof(msg), "%d:%s\n", seq, buf);
-
 	printd("> %s", msg);
 
 	io_open();
@@ -67,8 +130,6 @@ int io_cmd(const char *fmt, ...)
 	}
 
 	seq ++;
-
-	return 0;
 }
 
 
@@ -85,7 +146,7 @@ void io_handle(char *line)
 	char *ok = strtok(NULL, ":");
 	char *msg = strtok(NULL, ":");
 
-	if(strcmp(msg, "pong") == 0) t_pong = SDL_GetTicks();
+	if(strcmp(msg, "pong") == 0) t_pong = hirestime();
 }
 
 
@@ -137,42 +198,13 @@ void fn_output(const char *data1, const char *data2)
 void fn_play(const char *data1, const char *data2)
 {
 	if(strcmp(data1, "mech") == 0) {
-		Mix_PlayChannel(3, mech, 0);
+		alSourcePlay(sample_list[2].src);
 	}
 	if(strcmp(data1, "bell") == 0) {
-		Mix_PlayChannel(3, bell, 0);
+		alSourcePlay(sample_list[3].src);
 	}
 }
 
-
-struct work {
-	double t;
-	void (*fn)(const char *data1, const char *data2);
-	const char *data1, *data2;
-	int done;
-} work_list[] = {
-	{    0.0, fn_output, "1", "on",  },
-	{   30.0, fn_output, "2", "on",  },
-	{   52.0, fn_play,   "mech"      },
-	{   60.0, fn_output, "3", "on"   },
-	{   60.0, fn_play,   "bell"      },
-	{   64.0, fn_play,   "bell"      },
-	{   68.0, fn_play,   "bell"      },
-	{   72.0, fn_play,   "bell"      },
-	{   76.0, fn_play,   "bell"      },
-	{   80.0, fn_play,   "bell"      },
-	{   84.0, fn_play,   "bell"      },
-	{   88.0, fn_play,   "bell"      },
-	{   92.0, fn_play,   "bell"      },
-	{   96.0, fn_play,   "bell"      },
-	{  100.0, fn_play,   "bell"      },
-	{  104.0, fn_play,   "bell"      },
-	{  104.0, fn_output, "3", "off"  },
-	{  114.0, fn_output, "2", "off"  },
-	{  120.0, fn_output, "1", "off"  },
-};
-
-#define WORK_COUNT (sizeof(work_list) / sizeof(work_list[0]))
 
 
 void work_reset(void)
@@ -200,23 +232,53 @@ void work_do(double t)
 
 int main(int argc, char **argv)
 {
-	system("/usr/sbin/alsactl --file alsa.state restore");
+	//system("/usr/sbin/alsactl --file alsa.state restore");
 
-        Mix_OpenAudio(44100, AUDIO_S16, 2, 32);
-	SDL_Init(SDL_INIT_AUDIO | SDL_INIT_NOPARACHUTE);
-	mech = Mix_LoadWAV("wav/mech.wav");
-	bell = Mix_LoadWAV("wav/bell.wav");
-	tick = Mix_LoadWAV("wav/tick.wav");
-	tock = Mix_LoadWAV("wav/tock.wav");
+	ALCdevice *device = NULL;
+	ALCcontext *context = NULL;
+	ALfloat listenerOri[] = { 0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 0.0f };
+	ALCenum error;
 
-	Mix_VolumeChunk(tick, 128);
-	Mix_VolumeChunk(tock, 128);
-	Mix_VolumeChunk(mech, 50);
+	const char *opt_device = alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+
+	printd("Opening OpenAL audio device \"%s\"", opt_device);
+
+	device = alcOpenDevice(opt_device);
+	if (!device) {
+		fprintf(stderr, "unable to open default device\n");
+		exit(1);
+	}
+
+	context = alcCreateContext(device, NULL);
+	if (!alcMakeContextCurrent(context)) {
+		fprintf(stderr, "failed to make default context\n");
+		exit(1);
+	}
+	TEST_ERROR("make default context");
+
+	alListener3f(AL_POSITION, 0, 0, 0);
+	alListener3f(AL_VELOCITY, 0, 0, 0);
+	alListenerfv(AL_ORIENTATION, listenerOri);
+
+	for(int i=0; i<SAMPLE_COUNT; i++) {
+		struct sample *s = &sample_list[i];
+		s->buf = alureCreateBufferFromFile(s->fname);
+		if(s->buf == 0) {
+			fprintf(stderr, "Error reading sample %s\n", s->fname);
+			exit(1);
+		}
+		alGenSources((ALuint)1, &s->src);
+		alSourcef(s->src, AL_GAIN, s->gain);
+		alSourcef(s->src, AL_PITCH, s->pitch);
+		//alSource3f(s->src, AL_POSITION, -.5, 0, 0.5);
+		alSourcei(s->src, AL_BUFFER, s->buf);
+		TEST_ERROR("source generation");
+	}
 
 	t_tick = 0.0;
 	t_tock = 1.5;
 	t_bell = 3.0;
-
+			
 	int sec_prev = 0;
 
 	int i;
@@ -235,16 +297,14 @@ int main(int argc, char **argv)
 
 		if(sec != sec_prev) {
 			printf("%02d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
-			if(tm->tm_sec == 52 && tm->tm_min == 54) {
+			if(tm->tm_sec == 00 && tm->tm_min == 54) {
 				work_reset();
 				t_work = t_now;
 			}
 			sec_prev = sec;
 		}
 
-
-		t_now = SDL_GetTicks() / 1000.0;
-
+		t_now = hirestime();
 		io_poll();
 
 		if(t_now > t_ping) {
@@ -258,21 +318,19 @@ int main(int argc, char **argv)
 		}
 
 		if(t_now >= t_tick) {
-			Mix_PlayChannel(0, tick, 0);
+			alSourcePlay(sample_list[0].src);
 			t_tick += 3.0;
 		}
 
 		if(t_now >= t_tock) {
-			Mix_PlayChannel(1, tock, 0);
+			alSourcePlay(sample_list[1].src);
 			t_tock += 3.0;
 		}
 
 		work_do(t_now - t_work);
 
-		SDL_Delay(10);
+		usleep(10 * 1000);
 	}
-
-	SDL_Quit();
 
 	return 0;
 }

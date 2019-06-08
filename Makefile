@@ -1,7 +1,7 @@
 
 BIN   	= doomclock
 SRC 	= main.c serial.c
-PKG	+= sdl SDL_mixer
+PKG	+= alure openal
 
 CFLAGS  += -Wall -Werror -Wno-unused-variable
 CFLAGS	+= -O3 -MMD
