@@ -276,7 +276,7 @@ int main(int argc, char **argv)
 	}
 
 	t_tick = 0.0;
-	t_tock = 1.5;
+	t_tock = 1.3;
 	t_bell = 3.0;
 			
 	int sec_prev = 0;
