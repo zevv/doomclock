@@ -28,13 +28,6 @@ static double t_work = 0;
 static int fd = -1;
 static int seq = 0;
 
-#define TEST_ERROR(_msg)		\
-	error = alGetError();		\
-	if (error != AL_NO_ERROR) {	\
-		fprintf(stderr, _msg "\n");	\
-		exit(1);		\
-	}
-
 struct sample {
 	const char *fname;
 	float pitch;
@@ -145,15 +138,9 @@ void io_dpy_clear(void)
 }
 
 
-void io_dpy_l1(const char *msg)
+void io_dpy_text(int font, int x, int y, const char *msg)
 {
-	io_cmd("dpy 1 %s", msg);
-}
-
-
-void io_dpy_l2(int h, int m)
-{
-	io_cmd("dpy 2 %02d:%02d", h, m);
+	io_cmd("dpy t %d %d %d %s", font, x, y, msg);
 }
 
 
@@ -164,7 +151,9 @@ void io_handle(char *line)
 	char *ok = strtok(NULL, ":");
 	char *msg = strtok(NULL, ":");
 
-	if(strcmp(msg, "pong") == 0) t_pong = hirestime();
+	if(strcmp(msg, "pong") == 0) {
+		t_pong = hirestime();
+	}
 }
 
 
@@ -224,7 +213,6 @@ void fn_play(const char *data1, const char *data2)
 }
 
 
-
 void work_reset(void)
 {
 	int i;
@@ -272,9 +260,8 @@ int main(int argc, char **argv)
 		fprintf(stderr, "failed to make default context\n");
 		exit(1);
 	}
-	TEST_ERROR("make default context");
 
-	alListener3f(AL_POSITION, 0, 0, 0);
+	alListener3f(AL_POSITION, -10, 0, 0);
 	alListener3f(AL_VELOCITY, 0, 0, 0);
 	alListenerfv(AL_ORIENTATION, listenerOri);
 
@@ -288,9 +275,8 @@ int main(int argc, char **argv)
 		alGenSources((ALuint)1, &s->src);
 		alSourcef(s->src, AL_GAIN, s->gain);
 		alSourcef(s->src, AL_PITCH, s->pitch);
-		//alSource3f(s->src, AL_POSITION, -.5, 0, 0.5);
+		alSource3f(s->src, AL_POSITION, 0.5, 0, 0.5);
 		alSourcei(s->src, AL_BUFFER, s->buf);
-		TEST_ERROR("source generation");
 	}
 
 	t_tick = 0.0;
@@ -300,7 +286,7 @@ int main(int argc, char **argv)
 	int sec_prev = 0;
 
 	io_dpy_clear();
-	io_dpy_l1("TickTock");
+	io_dpy_text(1, 0, 0, "RUNNING");
 
 	int i;
 	for(i=0; i<5; i++) {
@@ -317,7 +303,17 @@ int main(int argc, char **argv)
 		int min = tm->tm_min;
 
 		if(sec != sec_prev) {
-			io_dpy_l2(min, sec);
+			char buf[] = "xx:xx:xx";
+			buf[0] = (tm->tm_hour / 10) + '0';
+			buf[1] = (tm->tm_hour % 10) + '0';
+			buf[3] = (tm->tm_min  / 10) + '0';
+			buf[4] = (tm->tm_min  % 10) + '0';
+			buf[6] = (tm->tm_sec  / 10) + '0';
+			buf[7] = (tm->tm_sec  % 10) + '0';
+
+			printf("%s\n", buf);
+
+			io_dpy_text(2, 0, 24, buf);
 			printf("%02d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
 				work_reset();
@@ -335,7 +331,7 @@ int main(int argc, char **argv)
 		}
 
 		if(t_now > t_pong + 2.0) {
-			fprintf(stderr, "ping timeout\n");
+			//fprintf(stderr, "ping timeout\n");
 			t_pong = t_now;
 		}
 

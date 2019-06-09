@@ -59,35 +59,26 @@ static void cs(uint8_t v)
 }
 
 
-#define DELAY 1
-
 void spi_tx(uint8_t *buf, size_t len, uint8_t b9)
 {
 	cs(0);
-	_delay_us(DELAY);
 
 	while(len--) {
 		sck(0);
 		mosi(b9);
-		_delay_us(DELAY);
 		sck(1);
-		_delay_us(DELAY);
 
 		uint8_t v = *buf++;
 		for(uint8_t i=0; i<8; i++) {
 			sck(0);
 			mosi(v & 0x80);
-			_delay_us(DELAY);
 			sck(1);
-			_delay_us(DELAY);
 			v <<= 1;
 		}
 	}
 	
 	mosi(1);
-	_delay_us(DELAY);
 	cs(1);
-	_delay_us(DELAY);
 }
 	
 

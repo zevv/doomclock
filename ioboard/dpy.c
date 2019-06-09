@@ -51,8 +51,8 @@ struct font font_list[] = {
 	},
 	[FONT_MEDIUM] = {
 		.img = &font_medium,
-		.cw = 20,
-		.ch = 40,
+		.cw = 16,
+		.ch = 20,
 		.c_from = '0',
 		.c_to = ':',
 	},
@@ -122,18 +122,19 @@ uint8_t fb[LCD_WIDTH * LCD_HEIGHT / 8];
 
 static uint8_t fn_dpy(struct msg *m)
 {
-	if(m->argc == 1) {
-		if(m->argv[0][0] == 'c') {
-			dpy_clear();
-		}
+	if(m->argc < 1) return -1;
+	char cmd = m->argv[0][0];
+
+	if(cmd == 'c') {
+		dpy_clear();
+		return 0;
 	}
-	if(m->argc == 2) {
-		if(m->argv[0][0] == '1') {
-			dpy_text(FONT_NORMAL, 0, 0, m->argv[1]);
-		}
-		if(m->argv[0][0] == '2') {
-			dpy_text(FONT_MEDIUM, 8, 16, m->argv[1]);
-		}
+
+	if(cmd == 't' && m->argc == 5) {
+		int font = (m->argv[1][0] == '1') ? FONT_NORMAL : FONT_MEDIUM;
+		int x = atoi(m->argv[2]);
+		int y = atoi(m->argv[3]);
+		dpy_text(font, x, y, m->argv[4]);
 		dpy_flush();
 	}
 	return 0;
