@@ -31,10 +31,10 @@ static uint8_t fn_outputs(struct msg *m);
 
 
 struct input input_list[INPUT_COUNT] = {
+	{ .mask = (1<<PC0) },
 	{ .mask = (1<<PC1) },
 	{ .mask = (1<<PC2) },
 	{ .mask = (1<<PC3) },
-	{ .mask = (1<<PC4) },
 };
 
 struct output output_list[OUTPUT_COUNT] = {
@@ -49,7 +49,7 @@ struct output output_list[OUTPUT_COUNT] = {
 void gpio_init(void)
 {
 	DDRD |= 0xfc;
-	DDRC &= ~0x1f;
+	DDRC &= ~((1<<PC1) | (1<<PC2) | (1<<PC3) | (1<<PC4));
 	
 	msg_add_handler("input", fn_input, 1);
 	msg_add_handler("inputs", fn_inputs, 0);

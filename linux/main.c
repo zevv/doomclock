@@ -306,8 +306,6 @@ int main(int argc, char **argv)
 		io_set(i, 0);
 	}
 
-	//play(SAMPLE_SHOUT);
-
 	for(;;) {
 
 		time_t t = time(NULL);
