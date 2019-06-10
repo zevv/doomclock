@@ -6,7 +6,6 @@
 
 enum evtype {
 	EV_TIMER,
-	EV_INPUT,
 	EV_UART,
 };
 

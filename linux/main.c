@@ -28,6 +28,14 @@ static double t_work = 0;
 static int fd = -1;
 static int seq = 0;
 
+enum sample_id {
+	SAMPLE_TICK,
+	SAMPLE_TOCK,
+	SAMPLE_MECH,
+	SAMPLE_BELL,
+	SAMPLE_SHOUT
+};
+
 struct sample {
 	const char *fname;
 	float pitch;
@@ -35,10 +43,11 @@ struct sample {
 	ALuint buf;
 	ALuint src;
 } sample_list[] = {
-	{ "wav/tick.wav", .pitch=0.8, .gain=1.0 },
-	{ "wav/tock.wav", .pitch=0.8, .gain=1.0 },
-	{ "wav/mech.wav", .pitch=0.6, .gain=1.0 },
-	{ "wav/bell.wav", .pitch=0.6, .gain=1.0 },
+	[SAMPLE_TICK ] = { "wav/tick.wav", .pitch=0.8, .gain=1.0 },
+	[SAMPLE_TOCK ] = { "wav/tock.wav", .pitch=0.8, .gain=1.0 },
+	[SAMPLE_MECH ] = { "wav/mech.wav", .pitch=0.6, .gain=1.0 },
+	[SAMPLE_BELL ] = { "wav/bell.wav", .pitch=0.6, .gain=1.0 },
+	[SAMPLE_SHOUT] = { "wav/shout.wav", .pitch=1.0, .gain=1.0 },
 };
 
 
@@ -112,7 +121,7 @@ void io_cmd(const char *fmt, ...)
 	va_end(va);
 
 	char msg[65];
-	int l = snprintf(msg, sizeof(msg), "%d,%s\n", seq, buf);
+	int l = snprintf(msg, sizeof(msg), "%d;%s\n", seq, buf);
 	printd("> %s", msg);
 
 	io_open();
@@ -147,9 +156,9 @@ void io_dpy_text(int font, int x, int y, const char *msg)
 void io_handle(char *line)
 {
 	printd("< %s\n", line);
-	char *seq = strtok(line, ":");
-	char *ok = strtok(NULL, ":");
-	char *msg = strtok(NULL, ":");
+	char *seq = strtok(line, ";");
+	char *ok = strtok(NULL, ";");
+	char *msg = strtok(NULL, ";");
 
 	if(strcmp(msg, "pong") == 0) {
 		t_pong = hirestime();
@@ -193,6 +202,11 @@ void io_poll(void)
 	}
 }
 
+static void play(enum sample_id id)
+{
+	alSourcePlay(sample_list[id].src);
+}
+
 
 void fn_output(const char *data1, const char *data2)
 {
@@ -205,10 +219,10 @@ void fn_output(const char *data1, const char *data2)
 void fn_play(const char *data1, const char *data2)
 {
 	if(strcmp(data1, "mech") == 0) {
-		alSourcePlay(sample_list[2].src);
+		play(SAMPLE_MECH);
 	}
 	if(strcmp(data1, "bell") == 0) {
-		alSourcePlay(sample_list[3].src);
+		play(SAMPLE_BELL);
 	}
 }
 
@@ -234,7 +248,6 @@ void work_do(double t)
 		}
 	}
 }
-
 
 int main(int argc, char **argv)
 {
@@ -293,6 +306,8 @@ int main(int argc, char **argv)
 		io_set(i, 0);
 	}
 
+	//play(SAMPLE_SHOUT);
+
 	for(;;) {
 
 		time_t t = time(NULL);
@@ -336,12 +351,12 @@ int main(int argc, char **argv)
 		}
 
 		if(t_now >= t_tick) {
-			alSourcePlay(sample_list[0].src);
+			play(SAMPLE_TICK);
 			t_tick += 3.0;
 		}
 
 		if(t_now >= t_tock) {
-			alSourcePlay(sample_list[1].src);
+			play(SAMPLE_TOCK);
 			t_tock += 3.0;
 		}
 

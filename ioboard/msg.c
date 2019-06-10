@@ -33,7 +33,7 @@ static void msg_send(const char *seq, const char *type, const char *body)
 {
 	if(!seq) seq = "0";
 	uint16_t sum = calc_crc16(body, strlen(body));
-	printd("%s:%s:%s:%x\n", seq, type, body, sum);
+	printd("%s;%s;%s;%x\n", seq, type, body, sum);
 }
 
 
@@ -83,7 +83,7 @@ static uint8_t msg_parse(struct msg *m, char *buf)
 	char *seq = NULL;
 	char *cksum = NULL;
 
-	parts = split(buf, ',', part, 8);
+	parts = split(buf, ';', part, 8);
 
 	if(parts == 1) {
 		body = part[0];

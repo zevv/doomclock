@@ -30,7 +30,7 @@ int main(void)
 	spi_init();
 	dpy_init();
 
-	dpy_text(FONT_NORMAL, 0, 0, "     READY      ");
+	dpy_text(FONT_NORMAL, 0, 0, "Wait...         ");
 	dpy_flush();
 
 	msg_add_handler("version", fn_version, 0);
