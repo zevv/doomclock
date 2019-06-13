@@ -9,7 +9,7 @@ CFLAGS	+= -g
 LDFLAGS += -g
 
 CFLAGS	+= $(shell pkg-config --cflags $(PKG))
-LDFLAGS	+= $(shell pkg-config --libs $(PKG))
+LIBS	+= $(shell pkg-config --libs $(PKG))
 
 CROSS	=
 OBJS    = $(subst .c,.o, $(SRC))
@@ -18,7 +18,7 @@ CC 	= $(CROSS)gcc
 LD 	= $(CROSS)gcc
 
 $(BIN):	$(OBJS)
-	$(LD) $(LDFLAGS) -o $@ $(OBJS)
+	$(LD) $(LDFLAGS) -o $@ $(OBJS) $(LIBS)
 
 clean:
 	rm -f $(OBJS) $(BIN) core

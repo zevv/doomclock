@@ -1,12 +1,19 @@
+
+/*
+ * http://api.marmalade.shop/ExampleOpenALReverb.html
+ */
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <assert.h>
 #include <sys/poll.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <AL/al.h>
+#include <AL/efx.h>
 #include <AL/alure.h>
 
 #include "serial.h"
@@ -251,6 +258,8 @@ void work_do(double t)
 
 int main(int argc, char **argv)
 {
+	int opt_reverb = 1;
+
 	//system("/usr/sbin/alsactl --file alsa.state restore");
 
 	ALCdevice *device = NULL;
@@ -268,11 +277,34 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
-	context = alcCreateContext(device, NULL);
+	ALint attribs[4] = {
+		ALC_MAX_AUXILIARY_SENDS, 4,
+		0
+	};
+
+	context = alcCreateContext(device, attribs);
 	if (!alcMakeContextCurrent(context)) {
 		fprintf(stderr, "failed to make default context\n");
 		exit(1);
 	}
+
+	LPALGENEFFECTS alGenEffects = alGetProcAddress("alGenEffects");
+	LPALGENAUXILIARYEFFECTSLOTS alGenAuxiliaryEffectSlots = alGetProcAddress("alGenAuxiliaryEffectSlots");
+	LPALDELETEEFFECTS alDeleteEffects = alGetProcAddress("alDeleteEffects");
+	LPALISEFFECT alIsEffect = alGetProcAddress("alIsEffect");
+	LPALEFFECTI alEffecti = alGetProcAddress("alEffecti");
+	LPALEFFECTF alEffectf = alGetProcAddress("alEffectf");
+	LPALAUXILIARYEFFECTSLOTI alAuxiliaryEffectSloti = alGetProcAddress("alAuxiliaryEffectSloti");
+	assert(alEffecti);
+
+	ALuint effect;
+	alGenEffects(1, &effect);
+	alEffecti(effect, AL_EFFECT_TYPE, AL_EFFECT_EAXREVERB);
+	if (alGetError() != AL_NO_ERROR) printf("Reverb Effect not supported\n");
+
+	ALuint slot;
+	alGenAuxiliaryEffectSlots(1, &slot);
+	alAuxiliaryEffectSloti(slot, AL_EFFECTSLOT_EFFECT, effect);
 
 	alListener3f(AL_POSITION, -10, 0, 0);
 	alListener3f(AL_VELOCITY, 0, 0, 0);
@@ -290,12 +322,13 @@ int main(int argc, char **argv)
 		alSourcef(s->src, AL_PITCH, s->pitch);
 		alSource3f(s->src, AL_POSITION, 0.5, 0, 0.5);
 		alSourcei(s->src, AL_BUFFER, s->buf);
+		if(opt_reverb) alSource3i(s->src, AL_AUXILIARY_SEND_FILTER, slot, 0, AL_FILTER_NULL);
 	}
 
 	t_tick = 0.0;
 	t_tock = 1.3;
 	t_bell = 3.0;
-			
+
 	int sec_prev = 0;
 
 	io_dpy_clear();
@@ -324,10 +357,7 @@ int main(int argc, char **argv)
 			buf[6] = (tm->tm_sec  / 10) + '0';
 			buf[7] = (tm->tm_sec  % 10) + '0';
 
-			printf("%s\n", buf);
-
 			io_dpy_text(2, 0, 24, buf);
-			printf("%02d:%02d:%02d\n", tm->tm_hour, tm->tm_min, tm->tm_sec);
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
 				work_reset();
 				t_work = t_now;
