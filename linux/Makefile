@@ -1,6 +1,6 @@
 
 BIN   	= doomclock
-SRC 	= main.c serial.c
+SRC 	= main.c serial.c sound.c io.c
 PKG	+= alure openal
 
 CFLAGS  += -Wall -Werror -Wno-unused-variable
