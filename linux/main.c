@@ -131,6 +131,7 @@ int main(int argc, char **argv)
 	int sec_prev = 0;
 
 	sound_init();
+	sound_play(SAMPLE_BELL);
 
 	io_dpy_clear();
 	io_dpy_text(1, 0, 0, "RUNNING");

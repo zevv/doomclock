@@ -42,11 +42,11 @@ struct sample {
 	ALuint buf;
 	ALuint src;
 } sample_list[] = {
-	[SAMPLE_TICK ] = { "wav/tick.wav", .pitch=0.8, .gain=1.0 },
-	[SAMPLE_TOCK ] = { "wav/tock.wav", .pitch=0.8, .gain=1.0 },
-	[SAMPLE_MECH ] = { "wav/mech.wav", .pitch=0.6, .gain=1.0 },
-	[SAMPLE_BELL ] = { "wav/bell.wav", .pitch=0.6, .gain=1.0 },
-	[SAMPLE_SHOUT] = { "wav/shout.wav", .pitch=1.0, .gain=1.0 },
+	[SAMPLE_TICK ] = { "wav/tick.wav",  .pitch=0.8, .gain=0.8,},
+	[SAMPLE_TOCK ] = { "wav/tock.wav",  .pitch=0.8, .gain=0.8 },
+	[SAMPLE_MECH ] = { "wav/mech.wav",  .pitch=0.6, .gain=0.8 },
+	[SAMPLE_BELL ] = { "wav/bell.wav",  .pitch=0.6, .gain=0.8 },
+	[SAMPLE_SHOUT] = { "wav/shout.wav", .pitch=1.0, .gain=0.8,},
 };
 
 
