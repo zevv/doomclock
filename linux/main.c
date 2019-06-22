@@ -5,12 +5,14 @@
 #include <assert.h>
 #include <sys/poll.h>
 #include <string.h>
+#include <fcntl.h>
 #include <time.h>
 #include <sys/time.h>
 #include <unistd.h>
 
 #include "sound.h"
 #include "io.h"
+#include "dpy.h"
 
 
 void fn_output(const char *data1, const char *data2);
@@ -57,14 +59,17 @@ struct work {
 #define WORK_COUNT (sizeof(work_list) / sizeof(work_list[0]))
 
 
-double hirestime(void)
+static double hirestime(void)
 {
-	static double t_first = 0;
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-	double t_now =  tv.tv_sec + tv.tv_usec * 1.0e-6;
-	if(t_first == 0) t_first = t_now;
-	return t_now - t_first;
+        struct timespec ts;
+        double now;
+	static double first = 0.0;
+
+        clock_gettime(CLOCK_MONOTONIC, &ts);
+        now = ts.tv_sec + (ts.tv_nsec) / 1.0E9;
+
+	if(first == 0.0) first = now;
+        return now - first;
 }
 
 
@@ -122,19 +127,91 @@ void work_do(double t_now)
 }
 
 
+static int fd_gpio20;
+static int fd_gpio16;
+
+void buttons_init(void)
+{
+	system("echo 26 > /sys/class/gpio/export");
+	system("echo high > /sys/class/gpio/gpio26/direction");
+	
+	system("echo 19 > /sys/class/gpio/export");
+	system("echo high > /sys/class/gpio/gpio19/direction");
+
+	system("echo 20 > /sys/class/gpio/export");
+	fd_gpio20 = open("/sys/class/gpio/gpio20/value", O_RDONLY);
+	
+	system("echo 16 > /sys/class/gpio/export");
+	fd_gpio16 = open("/sys/class/gpio/gpio16/value", O_RDONLY);
+}
+
+
+void buttons_poll(void)
+{
+	static int ticks_down = 0;
+
+	char buf[5] = "";
+
+	lseek(fd_gpio20, 0, SEEK_SET);
+	read(fd_gpio20, buf, sizeof(buf));
+	int v_up = buf[0] == '1';
+	
+	lseek(fd_gpio16, 0, SEEK_SET);
+	read(fd_gpio16, buf, sizeof(buf));
+	int v_dn = buf[0] == '1';
+
+	if(v_up || v_dn) {
+
+		int dt = 1;
+		int m = 10;
+
+		if(ticks_down >   0) { m = 100; dt =    1; }
+		if(ticks_down > 100) { m =  50; dt =    1; }
+		if(ticks_down > 200) { m =  20; dt =    1; }
+		if(ticks_down > 300) { m =  50; dt =   60; }
+		if(ticks_down > 400) { m =  20; dt =   60; }
+		if(ticks_down > 500) { m =   5; dt =   60; }
+		if(ticks_down > 700) { m =   2; dt =   60; }
+		if(ticks_down > 800) { m =   1; dt =  120; }
+
+		if(v_dn) dt = -dt;
+		
+		if((ticks_down % m) == 0) {
+
+			struct timespec ts;
+			clock_gettime(CLOCK_REALTIME, &ts);
+			ts.tv_sec += dt;
+			int r = clock_settime(CLOCK_REALTIME, &ts);
+		}
+		ticks_down ++;
+	} else {
+		if(ticks_down > 0) {
+			printf("rtc write\n");
+			system("../ds1302/ds1302 w");
+			ticks_down = 0;
+		}
+	}
+}
+
+
+
 int main(int argc, char **argv)
 {
 	double t_tick = 0.0;
 	double t_tock = 1.3;
 	double t_bell = 3.0;
 	double t_work = 0.0;
-	int sec_prev = 0;
+	time_t t_prev = 0;
 
 	sound_init();
 	sound_play(SAMPLE_BELL);
 
-	io_dpy_clear();
-	io_dpy_text(1, 0, 0, "RUNNING");
+	buttons_init();
+
+	dpy_open();
+	dpy_init();
+	dpy_clear();
+	
 
 	int i;
 	for(i=0; i<5; i++) {
@@ -146,31 +223,24 @@ int main(int argc, char **argv)
 	for(;;) {
 
 		time_t t = time(NULL);
-		struct tm *tm = localtime(&t);
 
-		int hour = tm->tm_hour;
-		int sec = tm->tm_sec;
-		int min = tm->tm_min;
+		if(t != t_prev) {
+			struct tm *tm = localtime(&t);
 
-		if(sec != sec_prev) {
-			char buf[] = "xx:xx:xx";
-			buf[0] = (tm->tm_hour / 10) + '0';
-			buf[1] = (tm->tm_hour % 10) + '0';
-			buf[3] = (tm->tm_min  / 10) + '0';
-			buf[4] = (tm->tm_min  % 10) + '0';
-			buf[6] = (tm->tm_sec  / 10) + '0';
-			buf[7] = (tm->tm_sec  % 10) + '0';
+			dpy_clear();
+			dpy_printf(FONT_MEDIUM, 0, 16, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+			dpy_flush();
 
-			io_dpy_text(2, 0, 24, buf);
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
 				work_init();
 				t_work = t_now;
 			}
-			sec_prev = sec;
+			t_prev = t;
 		}
 
 		t_now = hirestime();
 		io_poll();
+		buttons_poll();
 
 		if(t_now > t_ping) {
 			io_cmd("ping");
