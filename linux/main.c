@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <syslog.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -87,7 +88,7 @@ void io_handle(char *line)
 
 void fn_output(const char *data1, const char *data2)
 {
-	fprintf(stderr, "output %s %s\n", data1, data2);
+	syslog(LOG_NOTICE, "output %s %s\n", data1, data2);
 	int onoff = strcmp(data2, "on") == 0;
 	io_set(atoi(data1), onoff);
 }
@@ -95,7 +96,7 @@ void fn_output(const char *data1, const char *data2)
 
 void fn_play(const char *data1, const char *data2)
 {
-	fprintf(stderr, "play %s\n", data1);
+	syslog(LOG_NOTICE, "play %s\n", data1);
 	if(strcmp(data1, "mech") == 0) {
 		sound_play(SAMPLE_MECH);
 	}
@@ -222,6 +223,8 @@ int main(int argc, char **argv)
 	}
 
 	work_init(true);
+	
+	syslog(LOG_NOTICE, "start");
 
 	for(;;) {
 

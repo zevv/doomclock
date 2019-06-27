@@ -9,6 +9,6 @@ cd ds1302
 cd ..
 
 cd linux
-./doomclock 2>&1 | logger &
+./doomclock >/dev/null 2>&1 &
 cd ..
 
