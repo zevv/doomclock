@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <assert.h>
 #include <sys/poll.h>
@@ -21,7 +22,6 @@ void fn_play(const char *data1, const char *data2);
 static char *fname = "/dev/ttyUSB0";
 
 static int debug = 0;
-static double t_now = 0;
 static double t_ping = 0;
 static double t_pong = 0;
 static int fd = -1;
@@ -32,7 +32,7 @@ struct work {
 	double dt;
 	void (*fn)(const char *data1, const char *data2);
 	const char *data1, *data2;
-	int done;
+	bool done;
 } work_list[] = {
 	{   0.0, fn_output, "1", "on",  },
 	{  30.0, fn_output, "2", "on",  },
@@ -87,7 +87,7 @@ void io_handle(char *line)
 
 void fn_output(const char *data1, const char *data2)
 {
-	printf("output %s %s\n", data1, data2);
+	fprintf(stderr, "output %s %s\n", data1, data2);
 	int onoff = strcmp(data2, "on") == 0;
 	io_set(atoi(data1), onoff);
 }
@@ -95,6 +95,7 @@ void fn_output(const char *data1, const char *data2)
 
 void fn_play(const char *data1, const char *data2)
 {
+	fprintf(stderr, "play %s\n", data1);
 	if(strcmp(data1, "mech") == 0) {
 		sound_play(SAMPLE_MECH);
 	}
@@ -104,11 +105,11 @@ void fn_play(const char *data1, const char *data2)
 }
 
 
-void work_init(void)
+void work_init(bool done)
 {
 	for(int i=0; i<WORK_COUNT; i++) {
 		struct work *w = &work_list[i];
-		w->done = 0;
+		w->done = done;
 	}
 }
 
@@ -120,8 +121,9 @@ void work_do(double t_now)
 		struct work *w = &work_list[i];
 		t += w->dt;
 		if(!w->done && t_now >= t) {
+			printf("do %f\n", t_now);
 			w->fn(w->data1, w->data2);
-			w->done = 1;
+			w->done = true;
 		}
 	}
 }
@@ -197,6 +199,7 @@ void buttons_poll(void)
 
 int main(int argc, char **argv)
 {
+	static double t_now = 0;
 	double t_tick = 0.0;
 	double t_tock = 1.3;
 	double t_bell = 3.0;
@@ -218,7 +221,7 @@ int main(int argc, char **argv)
 		io_set(i, 0);
 	}
 
-	work_init();
+	work_init(true);
 
 	for(;;) {
 
@@ -232,7 +235,7 @@ int main(int argc, char **argv)
 			dpy_flush();
 
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
-				work_init();
+				work_init(false);
 				t_work = t_now;
 			}
 			t_prev = t;

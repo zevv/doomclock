@@ -1,5 +1,7 @@
 #!/bin/sh
 
+amixer sset PCM 95%
+
 cd /home/pi/doomclock
 
 cd ds1302
@@ -7,6 +9,6 @@ cd ds1302
 cd ..
 
 cd linux
-./doomclock >/dev/null 2>&1 &
+./doomclock 2>&1 | logger &
 cd ..
 
