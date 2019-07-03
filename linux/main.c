@@ -226,6 +226,10 @@ int main(int argc, char **argv)
 	
 	syslog(LOG_NOTICE, "start");
 
+	char ip[32] = "";
+	FILE *f = popen("ip addr show dev eth0 | grep ' inet' | awk '{print $2}'", "r");
+	fscanf(f, "%s", ip);
+
 	for(;;) {
 
 		time_t t = time(NULL);
@@ -234,7 +238,8 @@ int main(int argc, char **argv)
 			struct tm *tm = localtime(&t);
 
 			dpy_clear();
-			dpy_printf(FONT_MEDIUM, 0, 16, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+			dpy_printf(FONT_NORMAL, 0, 0, "ip: %s", ip);
+			dpy_printf(FONT_MEDIUM, 0, 24, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
 			dpy_flush();
 
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
