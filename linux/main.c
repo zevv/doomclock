@@ -4,6 +4,7 @@
 #include <syslog.h>
 #include <stdbool.h>
 #include <stdlib.h>
+#include <signal.h>
 #include <assert.h>
 #include <sys/poll.h>
 #include <string.h>
@@ -27,6 +28,9 @@ static double t_ping = 0;
 static double t_pong = 0;
 static int fd = -1;
 static int seq = 0;
+static bool force = false;
+static bool ticktock = false;
+static bool hourly = false;
 
 
 struct work {
@@ -163,6 +167,17 @@ void buttons_poll(void)
 	read(fd_gpio16, buf, sizeof(buf));
 	int v_dn = buf[0] == '1';
 
+	static int v_up_prev = 0, v_dn_prev = 0;
+
+	/* up button toggles tick tock */
+
+	if(v_up && ! v_up_prev) ticktock ^= 1;
+	if(v_dn && ! v_dn_prev) hourly ^= 1;
+
+	v_up_prev = v_up;
+	v_dn_prev = v_dn;
+
+
 	if(v_up || v_dn) {
 
 		int dt = 1;
@@ -197,6 +212,11 @@ void buttons_poll(void)
 }
 
 
+void on_sighub(int a)
+{
+	force = true;
+}
+
 
 int main(int argc, char **argv)
 {
@@ -206,6 +226,8 @@ int main(int argc, char **argv)
 	double t_bell = 3.0;
 	double t_work = 0.0;
 	time_t t_prev = 0;
+
+	signal(SIGHUP, on_sighub);
 
 	sound_init();
 	sound_play(SAMPLE_BELL);
@@ -240,10 +262,27 @@ int main(int argc, char **argv)
 			dpy_clear();
 			dpy_printf(FONT_NORMAL, 0, 0, "ip: %s", ip);
 			dpy_printf(FONT_MEDIUM, 0, 24, "%02d:%02d:%02d", tm->tm_hour, tm->tm_min, tm->tm_sec);
+			dpy_printf(FONT_NORMAL, 0, 48, "tik:%s boem:%s", 
+					ticktock ? "aan" : "uit",
+					hourly ? "uur" : "dag");
 			dpy_flush();
 
+			bool boom_now = false;
+			if(force) boom_now = true;
+
 			if(tm->tm_sec == 00 && tm->tm_min == 54) {
+				if(hourly) {
+					boom_now = true;
+				} else {
+					if (tm->tm_hour == 11 || tm->tm_hour == 23) {
+						boom_now = true;
+					}
+				}
+			}
+
+			if(boom_now) {
 				work_init(false);
+				force = 0;
 				t_work = t_now;
 			}
 			t_prev = t;
@@ -263,12 +302,12 @@ int main(int argc, char **argv)
 			t_pong = t_now;
 		}
 
-		if(t_now >= t_tick) {
+		if(ticktock && t_now >= t_tick) {
 			sound_play(SAMPLE_TICK);
 			t_tick += 3.0;
 		}
 
-		if(t_now >= t_tock) {
+		if(ticktock && t_now >= t_tock) {
 			sound_play(SAMPLE_TOCK);
 			t_tock += 3.0;
 		}
